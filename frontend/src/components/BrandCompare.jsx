@@ -1,66 +1,91 @@
 const FUELS = [
-  { key: 'diesel_b7', label: 'ดีเซล B7', tag: 'diesel' },
-  { key: 'diesel_b10', label: 'ดีเซล B10', tag: 'diesel' },
-  { key: 'diesel_b20', label: 'ดีเซล B20', tag: 'diesel' },
-  { key: 'premium_diesel', label: 'ดีเซลพรีเมียม', tag: 'premium' },
-  { key: 'gasohol_91', label: 'แก๊สโซฮอล์ 91', tag: 'gasohol' },
-  { key: 'gasohol_95', label: 'แก๊สโซฮอล์ 95', tag: 'gasohol' },
-  { key: 'e20', label: 'E20', tag: 'e20' },
-  { key: 'e85', label: 'E85', tag: 'e85' },
+  { key: 'diesel_b7',      label: 'ดีเซล B7',      tagColor: '#0288d1' },
+  { key: 'diesel_b10',     label: 'ดีเซล B10',     tagColor: '#0288d1' },
+  { key: 'diesel_b20',     label: 'ดีเซล B20',     tagColor: '#0288d1' },
+  { key: 'premium_diesel', label: 'ดีเซลพรีเมียม', tagColor: '#f59e0b' },
+  { key: 'gasohol_91',     label: 'แก๊สโซฮอล์ 91', tagColor: '#26a69a' },
+  { key: 'gasohol_95',     label: 'แก๊สโซฮอล์ 95', tagColor: '#26a69a' },
+  { key: 'e20',            label: 'E20',            tagColor: '#fb923c' },
+  { key: 'e85',            label: 'E85',            tagColor: '#a855f7' },
 ];
 
-// Simulate slight brand differences (±0.10~0.20 THB)
-function getBrandPrices(basePrice) {
-  if (!basePrice) return {};
+const BRANDS = ['PTT', 'Bangchak', 'Shell', 'Caltex'];
+
+function getBrandPrices(base) {
+  if (base == null) return null;
   return {
-    PTT: basePrice,
-    Bangchak: Math.round((basePrice + (Math.random() > 0.5 ? 0.1 : -0.1)) * 100) / 100,
-    Shell: Math.round((basePrice + 0.1) * 100) / 100,
-    Caltex: Math.round((basePrice - 0.1) * 100) / 100,
+    PTT:      base,
+    Bangchak: Math.round((base + (Math.random() > 0.5 ? 0.10 : -0.10)) * 100) / 100,
+    Shell:    Math.round((base + 0.10) * 100) / 100,
+    Caltex:   Math.round((base - 0.10) * 100) / 100,
   };
 }
 
 export default function BrandCompare({ prices }) {
-  return (
-    <div className="brand-compare fade-up">
-      <div className="section-heading">
-        🏪 เปรียบราคาตามแบรนด์
-      </div>
-      <table className="compare-table">
-        <thead>
-          <tr>
-            <th>ประเภทน้ำมัน</th>
-            <th>PTT</th>
-            <th>Bangchak</th>
-            <th>Shell</th>
-            <th>Caltex</th>
-          </tr>
-        </thead>
-        <tbody>
-          {FUELS.map(({ key, label, tag }) => {
-            const base = prices?.[key];
-            if (!base) return null;
-            const brandPrices = getBrandPrices(base);
-            const vals = Object.values(brandPrices);
-            const minVal = Math.min(...vals);
-            const maxVal = Math.max(...vals);
+  const rows = FUELS.map(f => {
+    const base = prices?.[f.key];
+    if (base == null) return null;
+    const bp   = getBrandPrices(base);
+    const vals = Object.values(bp);
+    return { ...f, bp, min: Math.min(...vals), max: Math.max(...vals) };
+  }).filter(Boolean);
 
-            return (
+  return (
+    <div className="anim-in">
+      {/* Section header — same style as page section labels */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 16 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--tx-3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+          เปรียบเทียบราคาตามแบรนด์
+        </span>
+        <span style={{ fontSize: 11, color: 'var(--tx-3)' }}>— ค่าประมาณ ±0.10 บาท</span>
+      </div>
+
+      <div className="scroll-x">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>ประเภท</th>
+              {BRANDS.map(b => <th key={b}>{b}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ key, label, tagColor, bp, min, max }) => (
               <tr key={key}>
-                <td><span className={`fuel-tag ${tag}`}>{label}</span></td>
-                {Object.entries(brandPrices).map(([brand, price]) => (
-                  <td key={brand} className={`price-cell ${price === minVal ? 'cheapest' : price === maxVal ? 'most-expensive' : ''}`}>
-                    {price.toFixed(2)} ฿
-                    {price === minVal && <span style={{ marginLeft: 4, fontSize: 10 }}>✓ ถูกสุด</span>}
-                  </td>
-                ))}
+                {/* Fuel type as colored text, no badge bg */}
+                <td>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: tagColor, fontFamily: 'Sarabun, sans-serif' }}>
+                    {label}
+                  </span>
+                </td>
+
+                {BRANDS.map(brand => {
+                  const price    = bp[brand];
+                  const isCheap  = price === min;
+                  const isExp    = price === max;
+                  return (
+                    <td key={brand}>
+                      <span style={{ color: isCheap ? 'var(--green)' : isExp ? 'var(--red)' : 'var(--tx-1)' }}>
+                        {price.toFixed(2)}
+                      </span>
+                      {isCheap && (
+                        <span style={{
+                          marginLeft: 6, fontSize: 9, fontWeight: 700,
+                          color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '0.05em',
+                        }}>
+                          Low
+                        </span>
+                      )}
+                    </td>
+                  );
+                })}
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)', fontFamily: 'Sarabun, sans-serif' }}>
-        * ราคา PTT จากข้อมูลจริง แบรนด์อื่นเป็นค่าประมาณ ±0.10 บาท
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ marginTop: 10, fontSize: 11, color: 'var(--tx-3)', fontFamily: 'Sarabun, sans-serif' }}>
+        * ราคา PTT จากข้อมูลจริง · แบรนด์อื่นเป็นค่าประมาณ
       </div>
     </div>
   );
