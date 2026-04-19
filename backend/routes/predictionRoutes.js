@@ -9,7 +9,7 @@ const router = Router();
 // GET /api/prediction — AI analysis for all fuel types
 router.get('/', async (req, res) => {
   try {
-    const history = getAllHistory(90);
+    const history = await getAllHistory(90);
     const analysis = analyzeAll(history);
 
     const fuels = Object.keys(analysis || {});
@@ -51,7 +51,7 @@ router.get('/', async (req, res) => {
 router.get('/:fuel', async (req, res) => {
   try {
     const { fuel } = req.params;
-    const history = getAllHistory(90);
+    const history = await getAllHistory(90);
     const analysis = analyzeFuel(history, fuel);
 
     try {

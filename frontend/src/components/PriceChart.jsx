@@ -53,31 +53,28 @@ const ChartTooltip = ({ active, payload, label }) => {
 /* ── Legend ───────────────────────────────────── */
 const CustomLegend = () => (
   <div style={{
-    display: 'flex', justifyContent: 'center', gap: 32,
+    display: 'flex', justifyContent: 'center', gap: 24, flexWrap: 'wrap',
     marginTop: 16, fontSize: 13, fontFamily: 'Sarabun, Inter, sans-serif',
   }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span style={{
-        display: 'inline-block', width: 24, height: 3,
-        background: '#26a69a', borderRadius: 2,
-      }} />
-      <span style={{
-        display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
-        border: '2.5px solid #26a69a', background: '#fff',
-      }} />
+      <span style={{ display: 'inline-block', width: 24, height: 3, background: '#26a69a', borderRadius: 2 }} />
       <span style={{ color: '#26a69a', fontWeight: 600 }}>ราคาจริง</span>
     </div>
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span style={{
-        display: 'inline-block', width: 24, height: 3,
-        background: '#c8893e', borderRadius: 2,
-        backgroundImage: 'repeating-linear-gradient(90deg, #c8893e 0, #c8893e 4px, transparent 4px, transparent 8px)',
-      }} />
-      <span style={{
-        display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
-        border: '2.5px solid #c8893e', background: '#fff',
-      }} />
-      <span style={{ color: '#c8893e', fontWeight: 600 }}>พยากรณ์</span>
+      <span style={{ display: 'inline-block', width: 24, height: 2, background: '#8b5cf6', borderRadius: 2 }} />
+      <span style={{ color: '#8b5cf6', fontWeight: 600 }}>SMA 7d</span>
+    </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ display: 'inline-block', width: 24, height: 2, background: '#3b82f6', borderRadius: 2 }} />
+      <span style={{ color: '#3b82f6', fontWeight: 600 }}>SMA 30d</span>
+    </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ display: 'inline-block', width: 24, height: 3, background: '#c8893e', borderRadius: 2, backgroundImage: 'repeating-linear-gradient(90deg, #c8893e 0, #c8893e 4px, transparent 4px, transparent 8px)' }} />
+      <span style={{ color: '#c8893e', fontWeight: 600 }}>พยากรณ์ (AI)</span>
+    </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ display: 'inline-block', width: 24, height: 3, background: '#9ca3af', borderRadius: 2, backgroundImage: 'repeating-linear-gradient(90deg, #9ca3af 0, #9ca3af 4px, transparent 4px, transparent 8px)' }} />
+      <span style={{ color: '#9ca3af', fontWeight: 600 }}>พยากรณ์ (สูตรสถิติ)</span>
     </div>
   </div>
 );
@@ -110,11 +107,19 @@ const ActualDot = (props) => {
   );
 };
 
-const ForecastDot = (props) => {
+const ForecastAiDot = (props) => {
   const { cx, cy, payload } = props;
-  if (payload?.forecast == null || !cx || !cy) return null;
+  if (payload?.forecast_ai == null || !cx || !cy) return null;
   return (
     <circle cx={cx} cy={cy} r={5} fill="#c8893e" stroke="#fff" strokeWidth={2.5} />
+  );
+};
+
+const ForecastAlgoDot = (props) => {
+  const { cx, cy, payload } = props;
+  if (payload?.forecast_algo == null || !cx || !cy) return null;
+  return (
+    <circle cx={cx} cy={cy} r={5} fill="#9ca3af" stroke="#fff" strokeWidth={2.5} />
   );
 };
 
@@ -153,19 +158,20 @@ export default function PriceChart({ selectedFuel, prediction }) {
       label: `D${i - lastIdx}`,
       date: r.date,
       actual: r.price,
-      forecast: null,
+      sma7: r.sma7,
+      sma30: r.sma30,
+      forecast_ai: null,
+      forecast_algo: null,
     }));
 
-    // Connect forecast at D+0 (last actual point) and extend
     const lastPrice = sliced[lastIdx]?.price;
-    const forecastTarget = typeof predPrice === 'number' ? predPrice : statPrice;
+    const aiTarget = typeof predPrice === 'number' ? predPrice : null;
+    const algoTarget = typeof statPrice === 'number' ? statPrice : null;
 
-    if (typeof lastPrice === 'number' && typeof forecastTarget === 'number') {
-      // Set D+0 to have both actual and forecast (connection point)
-      points[points.length - 1].forecast = lastPrice;
+    if (typeof lastPrice === 'number') {
+      if (aiTarget !== null) points[points.length - 1].forecast_ai = lastPrice;
+      if (algoTarget !== null) points[points.length - 1].forecast_algo = lastPrice;
 
-      // Interpolate forecast points: D+1, D+3, D+7
-      const totalChange = forecastTarget - lastPrice;
       const forecastSteps = [
         { label: 'D+1', ratio: 1 / 7 },
         { label: 'D+3', ratio: 3 / 7 },
@@ -176,12 +182,17 @@ export default function PriceChart({ selectedFuel, prediction }) {
         const nd = new Date(sliced[lastIdx].date);
         const daysOffset = parseInt(label.replace('D+', ''));
         nd.setDate(nd.getDate() + daysOffset);
-        points.push({
-          label,
-          date: nd.toISOString().split('T')[0],
-          actual: null,
-          forecast: Math.round((lastPrice + totalChange * ratio) * 100) / 100,
-        });
+        
+        const pt = { label, date: nd.toISOString().split('T')[0], actual: null };
+        if (aiTarget !== null) {
+          const totalChangeAI = aiTarget - lastPrice;
+          pt.forecast_ai = Math.round((lastPrice + totalChangeAI * ratio) * 100) / 100;
+        }
+        if (algoTarget !== null) {
+          const totalChangeAlgo = algoTarget - lastPrice;
+          pt.forecast_algo = Math.round((lastPrice + totalChangeAlgo * ratio) * 100) / 100;
+        }
+        points.push(pt);
       });
     }
 
@@ -303,17 +314,58 @@ export default function PriceChart({ selectedFuel, prediction }) {
                 animationDuration={800}
               />
 
-              {/* ━━ Forecast line ━━ */}
+              {/* ━━ SMA Lines ━━ */}
               <Line
                 type="monotone"
-                dataKey="forecast"
-                name="พยากรณ์"
+                dataKey="sma7"
+                name="SMA 7d"
+                stroke="#8b5cf6"
+                strokeWidth={1.5}
+                dot={false}
+                activeDot={{ r: 5, fill: '#8b5cf6', stroke: '#fff', strokeWidth: 2 }}
+                connectNulls={true}
+                isAnimationActive={true}
+                animationDuration={800}
+              />
+              <Line
+                type="monotone"
+                dataKey="sma30"
+                name="SMA 30d"
+                stroke="#3b82f6"
+                strokeWidth={1.5}
+                dot={false}
+                activeDot={{ r: 5, fill: '#3b82f6', stroke: '#fff', strokeWidth: 2 }}
+                connectNulls={true}
+                isAnimationActive={true}
+                animationDuration={800}
+              />
+
+              {/* ━━ Forecast AI line ━━ */}
+              <Line
+                type="monotone"
+                dataKey="forecast_ai"
+                name="พยากรณ์ (AI)"
                 stroke="#c8893e"
                 strokeWidth={2.5}
                 strokeDasharray="8 5"
-                dot={<ForecastDot />}
+                dot={<ForecastAiDot />}
                 activeDot={{ r: 7, fill: '#c8893e', stroke: '#fff', strokeWidth: 3 }}
-                connectNulls={false}
+                connectNulls={true}
+                isAnimationActive={true}
+                animationDuration={800}
+              />
+
+              {/* ━━ Forecast Algo line ━━ */}
+              <Line
+                type="monotone"
+                dataKey="forecast_algo"
+                name="พยากรณ์ (สูตรสถิติ)"
+                stroke="#9ca3af"
+                strokeWidth={2.5}
+                strokeDasharray="5 5"
+                dot={<ForecastAlgoDot />}
+                activeDot={{ r: 7, fill: '#9ca3af', stroke: '#fff', strokeWidth: 3 }}
+                connectNulls={true}
                 isAnimationActive={true}
                 animationDuration={800}
               />

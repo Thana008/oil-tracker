@@ -1,41 +1,8 @@
-const path = require('path');
-const { spawn } = require('child_process');
+const axios = require('axios');
 
-const PYTHON_BIN = process.env.PYTHON_BIN || 'python';
-const SCRIPT_PATH = path.join(__dirname, '../python/predict_price.py');
-
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const cache = {};
-
-function runPython(payload) {
-  return new Promise((resolve, reject) => {
-    const proc = spawn(PYTHON_BIN, [SCRIPT_PATH], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      windowsHide: true,
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout.on('data', (d) => { stdout += d.toString('utf8'); });
-    proc.stderr.on('data', (d) => { stderr += d.toString('utf8'); });
-    proc.on('error', reject);
-    proc.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(stderr || `python exited with code ${code}`));
-        return;
-      }
-      try {
-        resolve(JSON.parse(stdout || '{}'));
-      } catch (e) {
-        reject(new Error(`invalid python json: ${e.message}`));
-      }
-    });
-
-    proc.stdin.write(JSON.stringify(payload));
-    proc.stdin.end();
-  });
-}
 
 async function predictPriceWithPython(history, fuelType, horizonDays = 7) {
   const key = `${fuelType}:${horizonDays}`;
@@ -44,10 +11,24 @@ async function predictPriceWithPython(history, fuelType, horizonDays = 7) {
   if (cached && now < cached.expiresAt) return cached.value;
 
   const sliced = Array.isArray(history) ? history.slice(-180) : [];
-  const result = await runPython({ history: sliced, fuelType, horizonDays });
-  cache[key] = { value: result, expiresAt: now + CACHE_TTL_MS };
-  return result;
+  
+  try {
+    const response = await axios.post(`${AI_SERVICE_URL}/predict`, {
+      history: sliced,
+      fuelType,
+      horizonDays
+    });
+    
+    const result = response.data;
+    cache[key] = { value: result, expiresAt: now + CACHE_TTL_MS };
+    return result;
+  } catch (error) {
+    console.error('❌ AI Service error:', error.message);
+    if (error.response) {
+      console.error('Data:', error.response.data);
+    }
+    throw new Error(`AI service failed: ${error.message}`);
+  }
 }
 
 module.exports = { predictPriceWithPython };
-

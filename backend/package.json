@@ -9,6 +9,7 @@
     "seed": "node scripts/seedData.js"
   },
   "dependencies": {
+    "@prisma/client": "^5.0.0",
     "axios": "^1.7.2",
     "cheerio": "^1.0.0",
     "cors": "^2.8.5",
@@ -17,6 +18,7 @@
     "node-cron": "^3.0.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "prisma": "^5.0.0"
   }
 }

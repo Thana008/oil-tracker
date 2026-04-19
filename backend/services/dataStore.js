@@ -1,77 +1,117 @@
-const fs = require('fs');
-const path = require('path');
-
-const DATA_FILE = path.join(__dirname, '../data/priceHistory.json');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 const DEFAULT_PRICES = {
-  diesel_b7: 33.44,
-  diesel_b10: 32.94,
-  diesel_b20: 32.44,
-  gasohol_91: 36.62,
-  gasohol_95: 40.12,
-  e20: 35.12,
-  e85: 22.90,
-  premium_diesel: 36.99,
+  diesel_b7: 33.44, diesel_b10: 32.94, diesel_b20: 32.44,
+  gasohol_91: 36.62, gasohol_95: 40.12, e20: 35.12, e85: 22.90, premium_diesel: 36.99,
 };
 
-function loadData() {
-  try {
-    if (!fs.existsSync(DATA_FILE)) {
-      const init = { history: [], lastUpdated: null };
-      saveData(init);
-      return init;
-    }
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
-  } catch (err) {
-    console.error('loadData error:', err.message);
-    return { history: [], lastUpdated: null };
-  }
-}
-
-function saveData(data) {
-  try {
-    const dir = path.dirname(DATA_FILE);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-  } catch (err) {
-    console.error('saveData error:', err.message);
-  }
-}
-
-function addPriceRecord(prices, brent = null) {
-  const data = loadData();
+async function addPriceRecord(prices, brent = null) {
   const today = new Date().toISOString().split('T')[0];
-  const idx = data.history.findIndex(h => h.date === today);
-  const record = { date: today, prices, brent, updatedAt: new Date().toISOString() };
-  if (idx >= 0) {
-    data.history[idx] = record;
-  } else {
-    data.history.push(record);
+  try {
+    await prisma.priceHistory.upsert({
+      where: { date: today },
+      update: {
+        diesel_b7: prices.diesel_b7,
+        diesel_b10: prices.diesel_b10,
+        diesel_b20: prices.diesel_b20,
+        gasohol_91: prices.gasohol_91,
+        gasohol_95: prices.gasohol_95,
+        e20: prices.e20,
+        e85: prices.e85,
+        premium_diesel: prices.premium_diesel,
+        brent: brent,
+        source: prices.source || 'cached'
+      },
+      create: {
+        date: today,
+        diesel_b7: prices.diesel_b7,
+        diesel_b10: prices.diesel_b10,
+        diesel_b20: prices.diesel_b20,
+        gasohol_91: prices.gasohol_91,
+        gasohol_95: prices.gasohol_95,
+        e20: prices.e20,
+        e85: prices.e85,
+        premium_diesel: prices.premium_diesel,
+        brent: brent,
+        source: prices.source || 'cached'
+      }
+    });
+  } catch (err) {
+    console.error('addPriceRecord error:', err.message);
   }
-  if (data.history.length > 365) data.history = data.history.slice(-365);
-  data.lastUpdated = new Date().toISOString();
-  saveData(data);
 }
 
-function getCurrentPrices() {
-  const data = loadData();
-  if (data.history.length === 0) return { prices: DEFAULT_PRICES, source: 'default', date: new Date().toISOString().split('T')[0] };
-  const last = data.history[data.history.length - 1];
-  return { prices: last.prices, brent: last.brent, source: last.prices.source || 'cached', date: last.date };
+async function getCurrentPrices() {
+  try {
+    const last = await prisma.priceHistory.findFirst({
+      orderBy: { date: 'desc' }
+    });
+    if (!last) return { prices: DEFAULT_PRICES, source: 'default', date: new Date().toISOString().split('T')[0] };
+    
+    const prices = {
+      diesel_b7: last.diesel_b7,
+      diesel_b10: last.diesel_b10,
+      diesel_b20: last.diesel_b20,
+      gasohol_91: last.gasohol_91,
+      gasohol_95: last.gasohol_95,
+      e20: last.e20,
+      e85: last.e85,
+      premium_diesel: last.premium_diesel,
+      source: last.source
+    };
+    return { prices, brent: last.brent, source: last.source || 'cached', date: last.date };
+  } catch (err) {
+    console.error('getCurrentPrices error:', err);
+    return { prices: DEFAULT_PRICES, source: 'default', date: new Date().toISOString().split('T')[0] };
+  }
 }
 
-function getHistory(fuelType, days = 90) {
-  const data = loadData();
-  return data.history.slice(-days).map(r => ({
-    date: r.date,
-    price: r.prices[fuelType] ?? null,
-    brent: r.brent ?? null,
-  })).filter(r => r.price !== null);
+async function getHistory(fuelType, days = 90) {
+  try {
+    const records = await prisma.priceHistory.findMany({
+      orderBy: { date: 'desc' },
+      take: days
+    });
+    
+    return records.reverse().map(r => ({
+      date: r.date,
+      price: r[fuelType] ?? null,
+      brent: r.brent ?? null,
+    })).filter(r => r.price !== null);
+  } catch (err) {
+    console.error('getHistory error:', err);
+    return [];
+  }
 }
 
-function getAllHistory(days = 90) {
-  const data = loadData();
-  return data.history.slice(-days);
+async function getAllHistory(days = 90) {
+  try {
+    const records = await prisma.priceHistory.findMany({
+      orderBy: { date: 'desc' },
+      take: days
+    });
+    
+    return records.reverse().map(r => ({
+      date: r.date,
+      prices: {
+        diesel_b7: r.diesel_b7,
+        diesel_b10: r.diesel_b10,
+        diesel_b20: r.diesel_b20,
+        gasohol_91: r.gasohol_91,
+        gasohol_95: r.gasohol_95,
+        e20: r.e20,
+        e85: r.e85,
+        premium_diesel: r.premium_diesel,
+        source: r.source
+      },
+      brent: r.brent,
+      updatedAt: r.updatedAt.toISOString()
+    }));
+  } catch (err) {
+    console.error('getAllHistory error:', err);
+    return [];
+  }
 }
 
-module.exports = { loadData, saveData, addPriceRecord, getCurrentPrices, getHistory, getAllHistory, DEFAULT_PRICES };
+module.exports = { addPriceRecord, getCurrentPrices, getHistory, getAllHistory, DEFAULT_PRICES };

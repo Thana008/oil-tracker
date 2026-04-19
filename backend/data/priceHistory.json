@@ -1273,9 +1273,25 @@
         "diesel_b10": 48.4,
         "source": "Kapook"
       },
-      "brent": 95.94,
-      "updatedAt": "2026-04-10T15:25:29.231Z"
+      "brent": 96.96,
+      "updatedAt": "2026-04-10T17:00:00.693Z"
+    },
+    {
+      "date": "2026-04-16",
+      "prices": {
+        "gasohol_95": 42.95,
+        "e20": 35.95,
+        "e85": 31.89,
+        "gasohol_91": 42.58,
+        "premium_diesel": 66.3,
+        "diesel_b7": 44.4,
+        "diesel_b20": 37.4,
+        "diesel_b10": 44.4,
+        "source": "Kapook"
+      },
+      "brent": 96.36,
+      "updatedAt": "2026-04-16T10:56:51.530Z"
     }
   ],
-  "lastUpdated": "2026-04-10T15:25:29.231Z"
+  "lastUpdated": "2026-04-16T10:56:51.530Z"
 }
