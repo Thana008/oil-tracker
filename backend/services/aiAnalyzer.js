@@ -16,7 +16,7 @@ function buildPrompt(analysis) {
 
 - น้ำมัน: ${analysis.fuelName}
 - ราคาปัจจุบัน: ${analysis.currentPrice.toFixed(2)} ฿/ลิตร
-- คาดการณ์ 7 วัน: ${analysis.predictedPrice.toFixed(2)} ฿/ลิตร (${analysis.change >= 0 ? '+' : ''}${analysis.change.toFixed(2)} ฿)
+- คาดการณ์ ${analysis.horizonDays || 7} วัน: ${analysis.predictedPrice.toFixed(2)} ฿/ลิตร (${analysis.change >= 0 ? '+' : ''}${analysis.change.toFixed(2)} ฿)
 - ทิศทาง: ${analysis.direction} (มั่นใจ ${analysis.confidence}%)
 - สัญญาณ: ${analysis.signals.slice(0, 3).join(' | ')}
 
@@ -49,9 +49,10 @@ async function callGroq(prompt) {
 }
 
 async function analyzeWithAI(analysis, fuelType) {
+  const cacheKey = `${fuelType}_${analysis.horizonDays || 7}`;
   // ตรวจสอบ Cache
-  if (cache[fuelType] && Date.now() < cache[fuelType].expiresAt) {
-    return cache[fuelType].summary;
+  if (cache[cacheKey] && Date.now() < cache[cacheKey].expiresAt) {
+    return cache[cacheKey].summary;
   }
 
   const prompt = buildPrompt(analysis);
@@ -69,7 +70,7 @@ async function analyzeWithAI(analysis, fuelType) {
     summary = generateSummary(analysis);
   } else {
     // เก็บลง Cache เฉพาะกรณีที่ได้คำตอบจาก AI จริงๆ
-    cache[fuelType] = { summary, expiresAt: Date.now() + CACHE_TTL };
+    cache[cacheKey] = { summary, expiresAt: Date.now() + CACHE_TTL };
   }
 
   return summary;

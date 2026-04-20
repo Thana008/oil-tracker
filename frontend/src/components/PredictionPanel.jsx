@@ -38,7 +38,7 @@ const DIR = {
 /* ═══════════════════════════════════════════════════
    PredictionPanel
 ═══════════════════════════════════════════════════ */
-export default function PredictionPanel({ fuelName, analysis, summary, loading }) {
+export default function PredictionPanel({ fuelName, analysis, summary, loading, horizonDays = 7 }) {
   return (
     <aside style={{
       display: 'flex', flexDirection: 'column',
@@ -62,13 +62,13 @@ export default function PredictionPanel({ fuelName, analysis, summary, loading }
 
       {loading && <Spinner />}
       {!loading && !analysis && <Empty />}
-      {!loading && analysis && <Body analysis={analysis} summary={summary} />}
+      {!loading && analysis && <Body analysis={analysis} summary={summary} horizonDays={horizonDays} />}
     </aside>
   );
 }
 
 /* ── Body ──────────────────────────────────────────── */
-function Body({ analysis, summary }) {
+function Body({ analysis, summary, horizonDays = 7 }) {
   const {
     direction = 'STABLE', confidence = 0,
     currentPrice = 0, predictedPrice = 0,
@@ -110,7 +110,7 @@ function Body({ analysis, summary }) {
             {change >= 0 ? '+' : ''}{change.toFixed(2)} ฿ ({changePercent >= 0 ? '+' : ''}{changePercent.toFixed(2)}%)
           </span>
         </div>
-        <div style={{ fontSize: 11, color: 'var(--tx-3)', marginTop: 2 }}>ภายใน 7 วันข้างหน้า</div>
+        <div style={{ fontSize: 11, color: 'var(--tx-3)', marginTop: 2 }}>ภายใน {horizonDays} วันข้างหน้า</div>
 
         {hasCompare && diff !== null && (
           <div style={{ fontSize: 11, color: 'var(--tx-3)', marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--divider)', fontVariantNumeric: 'tabular-nums' }}>

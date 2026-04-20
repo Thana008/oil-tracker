@@ -17,13 +17,13 @@ export async function fetchAllHistory(days = 90) {
   return data;
 }
 
-export async function fetchPredictions() {
-  const { data } = await api.get('/prediction');
+export async function fetchPredictions(days = 7) {
+  const { data } = await api.get('/prediction', { params: { days } });
   return data;
 }
 
-export async function fetchFuelPrediction(fuel) {
-  const { data } = await api.get(`/prediction/${fuel}`);
+export async function fetchFuelPrediction(fuel, days = 7) {
+  const { data } = await api.get(`/prediction/${fuel}`, { params: { days } });
   return data;
 }
 

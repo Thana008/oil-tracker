@@ -6,7 +6,7 @@ const DIR = {
   STABLE: { Icon: Minus,        label: 'ทรงตัว', color: 'var(--amber)' },
 };
 
-export default function PriceCard({ fuelType, fuelName, currentPrice, prediction, selected, onClick }) {
+export default function PriceCard({ fuelType, fuelName, currentPrice, prediction, selected, onClick, horizonDays = 7 }) {
   const dir       = prediction?.direction || 'STABLE';
   const { Icon, label, color } = DIR[dir];
   const hasPrice  = typeof currentPrice === 'number' && !Number.isNaN(currentPrice);
@@ -65,7 +65,7 @@ export default function PriceCard({ fuelType, fuelName, currentPrice, prediction
       {/* Change */}
       <div style={{ fontSize: 11, color: hasPrice && change !== 0 ? color : 'var(--tx-3)', marginBottom: 8, fontVariantNumeric: 'tabular-nums' }}>
         {!hasPrice ? 'ไม่มีข้อมูล'
-          : change !== 0 ? `${change > 0 ? '+' : ''}${change.toFixed(2)} ฿ (7d)`
+          : change !== 0 ? `${change > 0 ? '+' : ''}${change.toFixed(2)} ฿ (${horizonDays}d)`
           : 'ทรงตัว'}
       </div>
 

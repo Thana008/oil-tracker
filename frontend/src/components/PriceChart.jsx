@@ -124,7 +124,7 @@ const ForecastAlgoDot = (props) => {
 };
 
 /* ── Main ────────────────────────────────────── */
-export default function PriceChart({ selectedFuel, prediction }) {
+export default function PriceChart({ selectedFuel, prediction, horizonDays = 7 }) {
   const [data, setData]       = useState([]);
   const [days, setDays]       = useState(30);
   const [loading, setLoading] = useState(false);
@@ -172,11 +172,15 @@ export default function PriceChart({ selectedFuel, prediction }) {
       if (aiTarget !== null) points[points.length - 1].forecast_ai = lastPrice;
       if (algoTarget !== null) points[points.length - 1].forecast_algo = lastPrice;
 
-      const forecastSteps = [
-        { label: 'D+1', ratio: 1 / 7 },
-        { label: 'D+3', ratio: 3 / 7 },
-        { label: 'D+7', ratio: 1.0 },
-      ];
+      const forecastSteps = [];
+      if (horizonDays > 1) {
+        forecastSteps.push({ label: 'D+1', ratio: 1 / horizonDays });
+      }
+      const mid = Math.floor(horizonDays / 2);
+      if (mid > 1 && mid < horizonDays) {
+        forecastSteps.push({ label: `D+${mid}`, ratio: mid / horizonDays });
+      }
+      forecastSteps.push({ label: `D+${horizonDays}`, ratio: 1.0 });
 
       forecastSteps.forEach(({ label, ratio }) => {
         const nd = new Date(sliced[lastIdx].date);
@@ -197,7 +201,7 @@ export default function PriceChart({ selectedFuel, prediction }) {
     }
 
     return points;
-  }, [data, days, predPrice, statPrice]);
+  }, [data, days, predPrice, statPrice, horizonDays]);
 
   const dm = DIR[direction] || DIR.STABLE;
   const lastActual = data?.length ? data[data.length - 1] : null;
@@ -237,7 +241,7 @@ export default function PriceChart({ selectedFuel, prediction }) {
           )}
           {typeof predPrice === 'number' && (
             <span style={{ fontSize: 13, color: '#666' }}>
-              คาดการณ์ 7 วัน{' '}
+              คาดการณ์ {horizonDays} วัน{' '}
               <strong style={{ fontVariantNumeric: 'tabular-nums', color: '#c8893e', fontSize: 15 }}>
                 {predPrice.toFixed(2)} ฿
               </strong>

@@ -28,23 +28,24 @@ export default function App() {
   const [loading,        setLoading]        = useState(true);
   const [detailLoading,  setDetailLoading]  = useState(false);
   const [error,          setError]          = useState(null);
+  const [horizonDays,    setHorizonDays]    = useState(7);
 
   const loadData = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [prRes, predRes] = await Promise.all([fetchCurrentPrices(), fetchPredictions()]);
+      const [prRes, predRes] = await Promise.all([fetchCurrentPrices(), fetchPredictions(horizonDays)]);
       setPriceData(prRes);
       setPredictions(predRes.analysis);
     } catch (e) {
       setError('ไม่สามารถเชื่อมต่อ Backend ได้ · กรุณาตรวจสอบว่า Backend รันอยู่ที่ port 5001');
       console.error(e);
     } finally { setLoading(false); }
-  }, []);
+  }, [horizonDays]);
 
   const loadDetail = useCallback(async (fuel) => {
     setDetailLoading(true); setDetailAnalysis(null); setDetailSummary(null);
     try {
-      const r = await fetchFuelPrediction(fuel);
+      const r = await fetchFuelPrediction(fuel, horizonDays);
       setDetailAnalysis(r.analysis);
       setDetailSummary(r.summary);
     } catch (e) { console.error(e); }
@@ -52,7 +53,7 @@ export default function App() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
-  useEffect(() => { if (selectedFuel) loadDetail(selectedFuel); }, [selectedFuel, loadDetail]);
+  useEffect(() => { if (selectedFuel) loadDetail(selectedFuel); }, [selectedFuel, loadDetail, horizonDays]);
   useEffect(() => {
     const t = setInterval(loadData, 5 * 60 * 1000);
     return () => clearInterval(t);
@@ -106,6 +107,30 @@ export default function App() {
         <section style={{ marginBottom: 36 }}>
           <SectionLabel>วิเคราะห์แนวโน้ม</SectionLabel>
 
+          {/* Horizon selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+            <span style={{ fontSize: 11, color: 'var(--tx-3)', fontFamily: 'Sarabun, sans-serif' }}>พยากรณ์ล่วงหน้า</span>
+            {[3, 7, 14, 21, 30].map(d => (
+              <button
+                key={d}
+                onClick={() => setHorizonDays(d)}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: 11,
+                  fontWeight: horizonDays === d ? 700 : 500,
+                  color: horizonDays === d ? 'var(--bg)' : 'var(--tx-2)',
+                  background: horizonDays === d ? 'var(--blue)' : 'var(--card)',
+                  border: `1px solid ${horizonDays === d ? 'var(--blue)' : 'var(--divider)'}`,
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                {d} วัน
+              </button>
+            ))}
+          </div>
+
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'minmax(0,1fr) 300px',
@@ -129,6 +154,7 @@ export default function App() {
                     prediction={predictions?.[key]}
                     selected={selectedFuel === key}
                     onClick={setSelectedFuel}
+                    horizonDays={horizonDays}
                   />
                 ))}
               </div>
@@ -137,6 +163,7 @@ export default function App() {
               <PriceChart
                 selectedFuel={selectedFuel}
                 prediction={detailAnalysis || predictions?.[selectedFuel]}
+                horizonDays={horizonDays}
               />
             </div>
 
@@ -146,6 +173,7 @@ export default function App() {
               analysis={detailAnalysis || predictions?.[selectedFuel]}
               summary={detailSummary}
               loading={detailLoading}
+              horizonDays={horizonDays}
             />
           </div>
         </section>

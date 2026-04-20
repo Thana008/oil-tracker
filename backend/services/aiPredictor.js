@@ -113,7 +113,7 @@ const FUEL_NAMES = {
   e20: 'E20', e85: 'E85', premium_diesel: 'ดีเซลพรีเมียม',
 };
 
-function analyzeFuel(priceHistory, fuelType) {
+function analyzeFuel(priceHistory, fuelType, horizonDays = 7) {
   const prices = priceHistory
     .map(h => h.prices?.[fuelType])
     .filter(p => p != null && !isNaN(p));
@@ -141,11 +141,11 @@ function analyzeFuel(priceHistory, fuelType) {
   const trendModel = ts || lr;
 
   const rawPredicted = trendModel
-    ? (trendModel.slope * (recent30.length + 6) + trendModel.intercept)
+    ? (trendModel.slope * (recent30.length + horizonDays - 1) + trendModel.intercept)
     : currentPrice;
 
   const typical = typicalDailyChange(prices, 30);
-  const cap = Math.max(0.8, typical * 6);
+  const cap = Math.max(0.8, typical * horizonDays);
   let predictedPrice = rawPredicted;
   if (predictedPrice > currentPrice + cap) predictedPrice = currentPrice + cap;
   if (predictedPrice < currentPrice - cap) predictedPrice = currentPrice - cap;
@@ -199,11 +199,11 @@ function analyzeFuel(priceHistory, fuelType) {
     else { signals.push(`📊 MACD: ${macdV.macdLine.toFixed(4)} — Bearish`); bear++; }
   }
 
-  // Signal 6: 7-day change
-  if (prices.length >= 7) {
-    const p7 = prices[prices.length - 7];
-    const chg7 = ((currentPrice - p7) / p7 * 100);
-    signals.push(`📆 เปลี่ยนแปลง 7 วัน: ${chg7 >= 0 ? '+' : ''}${chg7.toFixed(2)}% (${chg7 >= 0 ? '+' : ''}${(currentPrice - p7).toFixed(2)} ฿)`);
+  // Signal 6: Historical change matching horizon
+  if (prices.length >= horizonDays) {
+    const prevP = prices[prices.length - horizonDays];
+    const chg = ((currentPrice - prevP) / prevP * 100);
+    signals.push(`📆 เปลี่ยนแปลง ${horizonDays} วัน: ${chg >= 0 ? '+' : ''}${chg.toFixed(2)}% (${chg >= 0 ? '+' : ''}${(currentPrice - prevP).toFixed(2)} ฿)`);
   }
 
   // Determine direction & confidence
@@ -224,13 +224,14 @@ function analyzeFuel(priceHistory, fuelType) {
     signals, sma7: sma7v, sma30: sma30v, ema7: ema7v, rsiValue: rsiV,
     macd: macdV, r2: lr?.r2 ?? null, fuelName: FUEL_NAMES[fuelType] || fuelType,
     statModel: ts ? 'theil-sen' : (lr ? 'linear-regression' : null),
+    horizonDays,
   };
 }
 
-function analyzeAll(priceHistory) {
+function analyzeAll(priceHistory, horizonDays = 7) {
   const fuels = ['diesel_b7', 'diesel_b10', 'diesel_b20', 'gasohol_91', 'gasohol_95', 'e20', 'e85', 'premium_diesel'];
   const results = {};
-  for (const f of fuels) results[f] = analyzeFuel(priceHistory, f);
+  for (const f of fuels) results[f] = analyzeFuel(priceHistory, f, horizonDays);
   return results;
 }
 
@@ -238,10 +239,11 @@ function generateSummary(analysis) {
   const { direction, confidence, currentPrice, predictedPrice, change, fuelName } = analysis;
   const dirTH = direction === 'UP' ? 'ขึ้น' : direction === 'DOWN' ? 'ลง' : 'ทรงตัว';
   const emoji = direction === 'UP' ? '📈' : direction === 'DOWN' ? '📉' : '➡️';
+  const days = analysis.horizonDays || 7;
   if (direction === 'STABLE') {
     return `${emoji} ราคา${fuelName}คาดว่าจะ${dirTH} อยู่ที่ ${currentPrice.toFixed(2)} ฿/ลิตร (ความมั่นใจ ${confidence}%)`;
   }
-  return `${emoji} ราคา${fuelName}คาดว่าจะ${dirTH} จาก ${currentPrice.toFixed(2)} → ${predictedPrice.toFixed(2)} ฿/ลิตร (${change >= 0 ? '+' : ''}${change.toFixed(2)} ฿) ภายใน 7 วัน ความมั่นใจ ${confidence}%`;
+  return `${emoji} ราคา${fuelName}คาดว่าจะ${dirTH} จาก ${currentPrice.toFixed(2)} → ${predictedPrice.toFixed(2)} ฿/ลิตร (${change >= 0 ? '+' : ''}${change.toFixed(2)} ฿) ภายใน ${days} วัน ความมั่นใจ ${confidence}%`;
 }
 
 module.exports = { linearRegression, theilSenRegression, sma, smaArray, ema, rsi, macd, analyzeFuel, analyzeAll, generateSummary };

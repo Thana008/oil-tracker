@@ -9,8 +9,9 @@ const router = Router();
 // GET /api/prediction — AI analysis for all fuel types
 router.get('/', async (req, res) => {
   try {
+    const horizonDays = Math.max(1, Math.min(30, parseInt(req.query.days) || 7));
     const history = await getAllHistory(90);
-    const analysis = analyzeAll(history);
+    const analysis = analyzeAll(history, horizonDays);
 
     const fuels = Object.keys(analysis || {});
     await Promise.all(fuels.map(async (fuel) => {
@@ -18,7 +19,7 @@ router.get('/', async (req, res) => {
       if (!a || typeof a.currentPrice !== 'number') return;
 
       try {
-        const py = await predictPriceWithPython(history, fuel, 7);
+        const py = await predictPriceWithPython(history, fuel, horizonDays);
         if (py && py.success && typeof py.predictedPrice === 'number') {
           a.statPredictedPrice = a.predictedPrice;
           a.predictedPrice = py.predictedPrice;
@@ -41,7 +42,7 @@ router.get('/', async (req, res) => {
       }
     }));
 
-    res.json({ success: true, timestamp: new Date().toISOString(), analysis });
+    res.json({ success: true, timestamp: new Date().toISOString(), horizonDays, analysis });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -51,11 +52,12 @@ router.get('/', async (req, res) => {
 router.get('/:fuel', async (req, res) => {
   try {
     const { fuel } = req.params;
+    const horizonDays = Math.max(1, Math.min(30, parseInt(req.query.days) || 7));
     const history = await getAllHistory(90);
-    const analysis = analyzeFuel(history, fuel);
+    const analysis = analyzeFuel(history, fuel, horizonDays);
 
     try {
-      const py = await predictPriceWithPython(history, fuel, 7);
+      const py = await predictPriceWithPython(history, fuel, horizonDays);
       if (py && py.success && typeof py.predictedPrice === 'number') {
         analysis.statPredictedPrice = analysis.predictedPrice;
         analysis.predictedPrice = py.predictedPrice;
